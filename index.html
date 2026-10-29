@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticket Tally – daily assignment tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Surfaces: Blush #f9edf0 and Champagne #e6c8b7 only. Text and outlines use a dark tint so everything stays readable. */
+  --bg:#e6c8b7; --surface:#f9edf0; --ink:#261311; --muted:#4a2f28; --line:rgba(38,19,17,.3);
+  --accent:#e6c8b7; --accent-ink:#261311; --warn:#261311; --bar:#e6c8b7;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5;min-height:100vh}
+.wrap{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+h1{font-size:1.25rem;font-weight:800;margin:0;letter-spacing:-.01em}
+h2{font-size:1.6rem;font-weight:800;margin:0 0 4px;letter-spacing:-.02em}
+p.sub{color:var(--muted);margin:0 0 20px}
+nav{display:flex;gap:6px}
+button,input{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:var(--surface);padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border:2px solid var(--ink);font-weight:800}
+.btn.active{background:var(--surface);border-color:var(--ink);box-shadow:inset 0 -3px 0 var(--ink)}
+.btn.danger{color:var(--warn)}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px}
+input[type=text],input[type=number]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+label{display:block;font-weight:600;margin-bottom:6px}
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin:16px 0 22px}
+.row-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.stats{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:18px;align-items:baseline}
+.stats b{font-size:2.4rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.stats span{color:var(--muted);display:block;font-size:.9rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.agent{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.agent .name{font-weight:800;font-size:1.05rem;overflow-wrap:anywhere}
+.counter{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.count{font-size:3.4rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;min-width:2ch;text-align:center}
+.step{width:56px;height:56px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:1.8rem;font-weight:600;cursor:pointer;display:grid;place-items:center;user-select:none;touch-action:manipulation}
+.step.plus{background:var(--accent);color:var(--accent-ink);border:2px solid var(--ink)}
+.step:active{transform:scale(.94)}
+.step:disabled{opacity:.35;cursor:not-allowed}
+.bump{animation:bump .18s ease-out}
+@keyframes bump{50%{transform:scale(1.18)}}
+@media (prefers-reduced-motion:reduce){.bump{animation:none}.step:active{transform:none}}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:.9rem}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tfoot td{font-weight:800;border-bottom:0}
+.share{display:flex;align-items:center;gap:8px;min-width:120px}
+.share i{display:block;height:10px;background:var(--bar);border:1px solid var(--ink);border-radius:5px}
+.scroll{overflow-x:auto}
+.hist{margin-top:28px}
+.hist details{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 14px;margin-bottom:8px}
+.hist summary{cursor:pointer;font-weight:600}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:8px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.err{color:var(--warn);font-weight:800;margin:8px 0 0;min-height:1.4em}
+@media print{
+  body{background:#fff;color:#000}
+  header nav,.row-actions,.hist,.toast{display:none!important}
+  .panel{border:0;padding:0}
+  :root{--ink:#000;--muted:#444;--line:#bbb;--surface:#fff;--bar:#bbb}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ticket Tally</h1>
+    <nav id="nav" hidden>
+      <button class="btn" id="navTrack">Track</button>
+      <button class="btn" id="navReport">EOD report</button>
+    </nav>
+  </header>
+  <main id="app"></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  var KEY = 'ticket-tally-v1';
+  var app = document.getElementById('app');
+  var nav = document.getElementById('nav');
+  var state = load();
+  var view = state.agents.length ? 'track' : 'count';
+  var draftCount = 4;
+
+  function today(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){ var s = JSON.parse(raw); if(s && Array.isArray(s.agents)) return s; }
+    }catch(e){}
+    return {agents:[], date:today(), history:[]};
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+  }
+  function esc(s){
+    return String(s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]});
+  }
+  function total(){ return state.agents.reduce(function(a,x){return a + x.count;},0); }
+  function toast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(function(){t.classList.remove('show');}, 1800);
+  }
+  function prettyDate(iso){
+    var p = iso.split('-');
+    return new Date(+p[0], +p[1]-1, +p[2]).toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  }
+
+  function render(){
+    nav.hidden = !state.agents.length || view==='count' || view==='names';
+    document.getElementById('navTrack').classList.toggle('active', view==='track');
+    document.getElementById('navReport').classList.toggle('active', view==='report');
+    if(view==='count') return renderCount();
+    if(view==='names') return renderNames();
+    if(view==='report') return renderReport();
+    renderTrack();
+  }
+
+  /* Step 1: how many agents */
+  function renderCount(){
+    app.innerHTML =
+      '<div class="panel">' +
+      '<h2>How many agents are on your team?</h2>' +
+      '<p class="sub">You’ll name each one next.</p>' +
+      '<label for="n">Number of agents</label>' +
+      '<div class="row-actions"><input id="n" type="number" min="1" max="50" value="'+draftCount+'" style="max-width:140px" inputmode="numeric">' +
+      '<button class="btn primary" id="go">Continue</button></div>' +
+      '<p class="err" id="err"></p></div>';
+    var n = document.getElementById('n');
+    function next(){
+      var v = parseInt(n.value,10);
+      if(!(v>=1 && v<=50)){ document.getElementById('err').textContent='Enter a number between 1 and 50.'; n.focus(); return; }
+      draftCount = v; view = 'names'; render();
+    }
+    document.getElementById('go').onclick = next;
+    n.onkeydown = function(e){ if(e.key==='Enter') next(); };
+    n.focus(); n.select();
+  }
+
+  /* Step 2: names */
+  function renderNames(){
+    var html = '<div class="panel"><h2>Name your agents</h2><p class="sub">Enter the name for each of the '+draftCount+' agent'+(draftCount>1?'s':'')+'.</p><div class="names">';
+    for(var i=0;i<draftCount;i++){
+      var existing = state.agents[i] ? state.agents[i].name : '';
+      html += '<div><label for="a'+i+'">Agent '+(i+1)+'</label><input type="text" id="a'+i+'" maxlength="40" value="'+esc(existing)+'" autocomplete="off"></div>';
+    }
+    html += '</div><div class="row-actions"><button class="btn" id="back">Back</button><button class="btn primary" id="start">Start tracking</button></div><p class="err" id="err"></p></div>';
+    app.innerHTML = html;
+    document.getElementById('a0').focus();
+    document.getElementById('back').onclick = function(){ view = state.agents.length ? 'track' : 'count'; render(); };
+    document.getElementById('start').onclick = function(){
+      var names = [], seen = {};
+      for(var i=0;i<draftCount;i++){
+        var v = document.getElementById('a'+i).value.trim();
+        if(!v){ document.getElementById('err').textContent='Agent '+(i+1)+' needs a name.'; document.getElementById('a'+i).focus(); return; }
+        if(seen[v.toLowerCase()]){ document.getElementById('err').textContent='“'+v+'” is used twice. Give each agent a different name.'; document.getElementById('a'+i).focus(); return; }
+        seen[v.toLowerCase()] = 1; names.push(v);
+      }
+      var old = {};
+      state.agents.forEach(function(a){ old[a.name.toLowerCase()] = a.count; });
+      state.agents = names.map(function(n){ return {name:n, count: old[n.toLowerCase()] || 0}; });
+      state.date = state.date || today();
+      save(); view = 'track'; render();
+    };
+  }
+
+  /* Tracker */
+  function renderTrack(){
+    var html = '<div class="stats"><div><b id="tot">'+total()+'</b><span>tickets assigned today</span></div><div><span>'+esc(prettyDate(state.date))+'</span></div></div><div class="grid">';
+    state.agents.forEach(function(a,i){
+      html += '<div class="agent"><div class="name">'+esc(a.name)+'</div><div class="counter">' +
+        '<button class="step" data-i="'+i+'" data-d="-1" aria-label="Remove one ticket from '+esc(a.name)+'"'+(a.count===0?' disabled':'')+'>−</button>' +
+        '<div class="count" id="c'+i+'" aria-live="polite">'+a.count+'</div>' +
+        '<button class="step plus" data-i="'+i+'" data-d="1" aria-label="Assign one ticket to '+esc(a.name)+'">+</button></div></div>';
+    });
+    html += '</div><div class="row-actions" style="margin-top:22px"><button class="btn" id="edit">Edit agents</button><button class="btn primary" id="toReport">View EOD report</button></div>';
+    app.innerHTML = html;
+    app.querySelectorAll('.step').forEach(function(b){
+      b.onclick = function(){ bump(+b.dataset.i, +b.dataset.d); };
+    });
+    document.getElementById('edit').onclick = function(){
+      draftCount = state.agents.length; view = 'count'; render();
+    };
+    document.getElementById('toReport').onclick = function(){ view='report'; render(); };
+  }
+  function bump(i,d){
+    var a = state.agents[i];
+    a.count = Math.max(0, a.count + d);
+    save();
+    var c = document.getElementById('c'+i);
+    c.textContent = a.count;
+    c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
+    document.getElementById('tot').textContent = total();
+    var minus = app.querySelector('.step[data-i="'+i+'"][data-d="-1"]');
+    if(minus) minus.disabled = a.count===0;
+  }
+
+  /* Report */
+  function rows(){
+    return state.agents.slice().sort(function(a,b){return b.count-a.count || a.name.localeCompare(b.name);});
+  }
+  function reportText(date, list, t){
+    var out = 'Ticket assignment report – ' + prettyDate(date) + '\n\n';
+    list.forEach(function(r){ out += r.name + ': ' + r.count + '\n'; });
+    return out + '\nTotal: ' + t;
+  }
+  function renderReport(){
+    var list = rows(), t = total(), max = Math.max.apply(null, list.map(function(r){return r.count;}).concat([1]));
+    var html = '<div class="panel"><h2>EOD report</h2><p class="sub">'+esc(prettyDate(state.date))+'</p><div class="scroll"><table><thead><tr><th>Agent</th><th class="num">Tickets</th><th>Share</th></tr></thead><tbody>';
+    list.forEach(function(r){
+      var pct = t ? Math.round(r.count/t*100) : 0;
+      html += '<tr><td>'+esc(r.name)+'</td><td class="num">'+r.count+'</td><td><div class="share"><i style="width:'+Math.round(r.count/max*90)+'px"></i>'+pct+'%</div></td></tr>';
+    });
+    html += '</tbody><tfoot><tr><td>Total</td><td class="num">'+t+'</td><td></td></tr></tfoot></table></div>' +
+      '<div class="row-actions" style="margin-top:20px"><button class="btn" id="copy">Copy report</button><button class="btn" id="csv">Download CSV</button><button class="btn" id="print">Print</button>' +
+      '<button class="btn primary" id="close">Save day &amp; start new day</button></div></div>';
+    if(state.history.length){
+      html += '<div class="hist"><h2 style="font-size:1.15rem">Previous days</h2>';
+      state.history.slice().reverse().forEach(function(h){
+        html += '<details><summary>'+esc(prettyDate(h.date))+' – '+h.total+' tickets</summary><table><tbody>';
+        h.rows.forEach(function(r){ html += '<tr><td>'+esc(r.name)+'</td><td class="num">'+r.count+'</td></tr>'; });
+        html += '</tbody></table></details>';
+      });
+      html += '</div>';
+    }
+    app.innerHTML = html;
+    document.getElementById('copy').onclick = function(){
+      var txt = reportText(state.date, list, t);
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(function(){toast('Report copied');}, function(){toast('Copy failed. Select the table and copy it.');});
+      } else toast('Copy isn’t available in this browser.');
+    };
+    document.getElementById('csv').onclick = function(){
+      var csv = 'Agent,Tickets\n' + list.map(function(r){ return '"'+r.name.replace(/"/g,'""')+'",'+r.count; }).join('\n') + '\nTotal,'+t+'\n';
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+      a.download = 'ticket-report-' + state.date + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+    document.getElementById('print').onclick = function(){ window.print(); };
+    document.getElementById('close').onclick = function(){
+      if(!confirm('Save today’s report to history and reset every count to 0?')) return;
+      state.history = state.history.filter(function(h){return h.date !== state.date;});
+      state.history.push({date:state.date, total:t, rows:list.map(function(r){return {name:r.name,count:r.count};})});
+      state.agents.forEach(function(a){ a.count = 0; });
+      state.date = today();
+      save(); view = 'track'; render(); toast('Day saved. Counts reset.');
+    };
+  }
+
+  document.getElementById('navTrack').onclick = function(){ view='track'; render(); };
+  document.getElementById('navReport').onclick = function(){ view='report'; render(); };
+  render();
+})();
+</script>
+</body>
+</html>
